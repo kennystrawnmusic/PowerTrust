@@ -37,9 +37,10 @@ function Invoke-ReverseBastion {
     [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
 
     $CurrentDomain = $Env:USERDNSDOMAIN
-    $zone = try { Get-DnsServerZone -Name $TargetDomain -ErrorAction SilentlyContinue } catch { }
-
-    if ($null -eq $zone) {
+    
+    try {
+        Get-DnsServerZone -Name $TargetDomain -ErrorAction SilentlyContinue
+    } catch {
         Add-DnsServerConditionalForwarderZone -Name $TargetDomain -MasterServers $TargetIP -PassThru
     }
     
