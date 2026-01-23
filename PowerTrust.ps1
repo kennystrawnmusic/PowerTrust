@@ -37,6 +37,13 @@ function Invoke-ReverseBastion {
     [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
 
     $CurrentDomain = $Env:USERDNSDOMAIN
+
+    $feature = Get-ADOptionalFeature -Identity 'Privileged Access Management Feature'
+    $scopes = $feature.EnabledScopes
+
+    if ([string]$scopes -eq '') {
+        Enable-ADOptionalFeature -Identity 'Privileged Access Management Feature' -Scope ForestOrConfigurationSet -Target $CurrentDomain
+    }
     
     try {
         Get-DnsServerZone -Name $TargetDomain -ErrorAction SilentlyContinue
@@ -58,13 +65,6 @@ function Invoke-ReverseBastion {
         (Get-ADGroup -Identity 'Enterprise Admins' -Server $TargetDC).SID.Value
     } else {
         (Get-ADGroup -Identity 'Enterprise Admins' -Server $TargetDC -Credential $Credential).SID.Value
-    }
-
-    $feature = Get-ADOptionalFeature -Identity 'Privileged Access Management Feature'
-    $scopes = $feature.EnabledScopes
-
-    if ([string]$scopes -eq '') {
-        Enable-ADOptionalFeature -Identity 'Privileged Access Management Feature' -Scope ForestOrConfigurationSet -Target $CurrentDomain
     }
 
     $trustpass = if ($PTT) {
