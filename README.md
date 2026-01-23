@@ -10,4 +10,5 @@ This toolkit contains the following tools to help utilize a domain controller in
 * `Gen-RDPFile`: Uses a multi-line template to automate the process of establishing one-click access to a remote machine
 * `Add-TargetDnsForwarder`: Simplifies the proces of adding a conditional forwarder for resolving a remote domain without needing to manually edit configuration files
 * `Add-RemoteDnsWildcardRecord`: Automates the process of adding a `*` record to a remote DC
+* `Enter-PlaintextWinRMSession`: Wrapper around `Enter-PSSession` that reduces the number of steps necessary to connect from 3 to 1
 * More to come

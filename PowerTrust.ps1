@@ -312,3 +312,20 @@ function Add-RemoteDnsWildcardRecord {
     $ZoneName = $Env:USERDNSDOMAIN
     Add-DnsServerResourceRecordA -Name '*' -ZoneName $ZoneName -IPv4Address $LocalIP -ComputerName $TargetDC -ErrorAction Stop
 }
+
+function Enter-PlaintextWinRMSession {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Scope='Function')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TargetComputer,
+        [Parameter(Mandatory=$true)]
+        [string]$Username,
+        [Parameter(Mandatory=$true)]
+        [string]$Password
+    )
+    $pass = ConvertTo-SecureString $Password -AsPlainText -Force
+    $cred = New-Object System.Management.Automation.PSCredential ($Username, $pass)
+
+    Enter-PSSession -ComputerName $TargetComputer -Credential $cred
+}
