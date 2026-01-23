@@ -1,3 +1,19 @@
+function Add-TargetDnsForwarder {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TargetDomain,
+        [Parameter(Mandatory=$true)]
+        [string]$TargetIP
+    )
+
+    $zone = try { Get-DnsServerZone -Name $TargetDomain -ErrorAction SilentlyContinue } catch { }
+
+    if ($null -eq $zone) {
+        Add-DnsServerConditionalForwarderZone -Name $TargetDomain -MasterServers $TargetIP -PassThru
+    }
+}
+
 function Invoke-ReverseBastion {
     [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
     param(
