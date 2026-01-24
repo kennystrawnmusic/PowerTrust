@@ -46,7 +46,7 @@ function Invoke-ReverseBastion {
     }
     
     try {
-        Get-DnsServerZone -Name $TargetDomain -ErrorAction SilentlyContinue
+        Resolve-DnsName -Name $TargetDomain
     } catch {
         Add-DnsServerConditionalForwarderZone -Name $TargetDomain -MasterServers $TargetIP -PassThru
     }
