@@ -331,3 +331,47 @@ function Enter-PlaintextWinRMSession {
 
     Enter-PSSession -ComputerName $TargetComputer -Credential $cred
 }
+
+function Invoke-PSADSession {
+    [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Scope='Function')]
+    param(
+        [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)] 
+        [string]$User,
+        [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)]
+        [string]$Password,
+        [Parameter(Mandatory=$true)]
+        [string]$ComputerName,
+        [bool]$Interactive = $true,
+        [Parameter(ParameterSetName="PassTheTicket")]
+        [switch]$PTT
+    )
+
+    $ADModule = Get-Module -Name ActiveDirectory
+    $ADModuleAssemblyPath = $ADModule.NestedModules[0].Path
+
+    $ADAssemblyType = [System.Reflection.Assembly]::LoadFile($ADModuleAssemblyPath)
+    
+    New-Module -Name ActiveDirectoryPortable -ScriptBlock {
+        Import-Module $Using:ADAssemblyType
+    }
+
+    $s = if ($PTT) {
+        New-PSSession -ComputerName $ComputerName -Authentication Kerberos
+    } else {
+        $ss = ConvertTo-SecureString $Password -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential($User, $ss)
+
+        New-PSSession -ComputerName $ComputerName -Credential $cred
+    }
+
+    Invoke-Command -Session $s -ScriptBlock {
+        Import-Module $Using:ActiveDirectoryPortable -Global
+    }
+
+    if ($Interactive) {
+        Enter-PSSession $s
+    } else {
+        return $s
+    }
+}

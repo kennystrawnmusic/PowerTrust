@@ -11,4 +11,5 @@ This toolkit contains the following tools to help utilize a domain controller in
 * `Add-TargetDnsForwarder`: Simplifies the proces of adding a conditional forwarder for resolving a remote domain without needing to manually edit configuration files
 * `Add-RemoteDnsWildcardRecord`: Automates the process of adding a `*` record to a remote DC
 * `Enter-PlaintextWinRMSession`: Wrapper around `Enter-PSSession` that reduces the number of steps necessary to connect from 3 to 1
+* `Invoke-PSADSession`: Reflectively loads the Active Directory PowerShell module assembly into a remote PowerShell session and enters it, bypassing the need to add it as an optional Windows feature on the target system
 * More to come
