@@ -351,10 +351,6 @@ function Invoke-PSADSession {
     $ADModuleAssemblyPath = $ADModule.NestedModules[0].Path
 
     $ADAssemblyType = [System.Reflection.Assembly]::LoadFile($ADModuleAssemblyPath)
-    
-    New-Module -Name ActiveDirectoryPortable -ScriptBlock {
-        Import-Module $Using:ADAssemblyType
-    }
 
     $s = if ($PTT) {
         New-PSSession -ComputerName $ComputerName -Authentication Kerberos
@@ -366,7 +362,7 @@ function Invoke-PSADSession {
     }
 
     Invoke-Command -Session $s -ScriptBlock {
-        Import-Module $Using:ActiveDirectoryPortable -Global
+        Import-Module $Using:ADAssemblyType -Global
     }
 
     if ($Interactive) {
