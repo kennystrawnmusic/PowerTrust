@@ -353,7 +353,7 @@ function Invoke-PSADSession {
     $ADAssemblyType = [System.Reflection.Assembly]::LoadFile($ADModuleAssemblyPath)
 
     $s = if ($PTT) {
-        New-PSSession -ComputerName $ComputerName -Authentication Kerberos
+        New-PSSession -ComputerName $ComputerName
     } else {
         $ss = ConvertTo-SecureString $Password -AsPlainText -Force
         $cred = New-Object System.Management.Automation.PSCredential($User, $ss)
