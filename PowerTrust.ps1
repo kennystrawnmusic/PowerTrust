@@ -362,7 +362,7 @@ function Invoke-PSADSession {
     }
 
     Invoke-Command -Session $s -ScriptBlock {
-        Import-Module $Using:ADAssemblyType -Global
+        Import-Module -Assembly $Using:ADAssemblyType -Global
     }
 
     if ($Interactive) {
