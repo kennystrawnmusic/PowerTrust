@@ -342,7 +342,7 @@ function Invoke-PSADSession {
         [string]$Password,
         [Parameter(Mandatory=$true)]
         [string]$ComputerName,
-        [switch]$Interactive,
+        [bool]$Interactive = $true,
         [Parameter(ParameterSetName="PassTheTicket")]
         [switch]$PTT
     )
