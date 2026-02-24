@@ -172,7 +172,14 @@ function Find-InterestingRemoteAcl {
                     $group = $_.Name
                     Get-ChildItem -Path ("$dom" + ":\$nc") -Recurse -Force | ForEach-Object {
                         Get-Acl -Path ("$dom" + ":\$_") | Select-Object PSChildName -ExpandProperty Access | Where-Object {
-                            ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and $_.AccessControlType -eq "Allow" -and ($_.ActiveDirectoryRights -eq "GenericAll" -or $_.ActiveDirectoryRights -like "*Write*" -or $_.ActiveDirectoryRights -like "*Create*" -or $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or $_.ActiveDirectoryRights -eq "Enroll") 
+                            ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and `
+                            $_.AccessControlType -eq "Allow" -and ( `
+                                $_.ActiveDirectoryRights -eq "GenericAll" -or `
+                                $_.ActiveDirectoryRights -like "*Write*" -or `
+                                $_.ActiveDirectoryRights -like "*Create*" -or `
+                                $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
+                                $_.ActiveDirectoryRights -eq "Enroll"
+                            )
                         }
                     }
                 }
@@ -204,7 +211,14 @@ function Find-InterestingRemoteAcl {
                     $group = $_.Name
                     Get-ChildItem -Path ("$dom" + ":\$nc") -Recurse -Force | ForEach-Object {
                         Get-Acl -Path ("$dom" + ":\$_") | Select-Object PSChildName -ExpandProperty Access | Where-Object {
-                            ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and $_.AccessControlType -eq "Allow" -and ($_.ActiveDirectoryRights -eq "GenericAll" -or $_.ActiveDirectoryRights -like "*Write*" -or $_.ActiveDirectoryRights -like "*Create*" -or $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or $_.ActiveDirectoryRights -eq "Enroll") 
+                            ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and `
+                            $_.AccessControlType -eq "Allow" -and ( `
+                                $_.ActiveDirectoryRights -eq "GenericAll" -or `
+                                $_.ActiveDirectoryRights -like "*Write*" -or `
+                                $_.ActiveDirectoryRights -like "*Create*" -or `
+                                $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
+                                $_.ActiveDirectoryRights -eq "Enroll"
+                            )
                         }
                     }
                 }
