@@ -3,7 +3,7 @@ Collection of PowerShell cmdlets for use on offensive domain controllers
 
 ## Cmdlets
 
-This toolkit contains the following tools to help utilize a domain controller in penetration tests to the fullest:
+This toolkit contains the following tools to help utilize an offensively-provisioned domain controller in penetration tests and red team engagements to the fullest:
 
 * `Invoke-ReverseBastion`: By far the most powerful tool of the bunch, this cmdlet automates the process of [setting up a bastion forest in the attack domain and adding a target domain to it](https://www.linkedin.com/pulse/domain-c2er-part-2-attack-mode-kenneth-strawn-aoajc).
 * `Find-InterestingRemoteAcl`: Uses the built-in AD cmdlets together with New-PSDrive and Get-Acl to remotely enumerate ACLs on one domain from another, all while using Microsoft-signed tools to avoid detection
