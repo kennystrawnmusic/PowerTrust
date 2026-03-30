@@ -31,7 +31,7 @@ RUN apt update && apt install -y --no-install-recommends \
     man-db \
     less \
     libncurses-dev \
-    pwsh \
+    powershell \
     && rm -rf /var/lib/apt/lists/*
 
 # Generate en_US.UTF-8 locale (Kali minimal image lacks it)
