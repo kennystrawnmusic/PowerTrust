@@ -385,3 +385,36 @@ function Invoke-PSADSession {
         return $s
     }
 }
+
+function Invoke-RunAsNetOnly {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.PSCredential]$Credential
+    )
+
+    $signature = @"
+[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword, int dwLogonType, int dwLogonProvider, ref IntPtr phToken);
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern bool CloseHandle(IntPtr hObject);
+"@
+
+    $advapi32 = Add-Type -MemberDefinition $signature -Name "Win32Logon" -Namespace "Win32" -PassThru
+
+    $token = [IntPtr]::Zero
+    $success = $advapi32::LogonUser("$($Credential.UserName)", "$($Credential.GetNetworkCredential().Domain)", "$($Credential.GetNetworkCredential().Password)", 9, 0, [ref]$token)
+
+    if ($success) {
+        $identity = New-Object System.Security.Principal.WindowsIdentity($token)
+        $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
+
+        [System.Threading.Thread]::CurrentPrincipal = $principal
+        [System.Security.Principal.WindowsIdentity]::RunImpersonated($identity.AccessToken, {
+            Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
+        })
+
+        $advapi32::CloseHandle($token)
+    } else {
+        Write-Error "LogonUser failed with error code: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+    }
+}
