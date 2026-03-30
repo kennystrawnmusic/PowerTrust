@@ -1,5 +1,5 @@
 {
-    "name": "CS1C Bank App",
+    "name": "PowerTrust",
     "build": {
         "dockerfile": "Dockerfile"
     },
@@ -17,6 +17,7 @@
                 "ms-vscode.cpptools-extension-pack",
                 "ms-vscode.cpptools-themes",
                 "ms-vscode.makefile-tools",
+                "ms-vscode.PowerShell",
                 "GitHub.copilot",
                 "GitHub.copilot-chat"
             ],
