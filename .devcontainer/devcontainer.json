@@ -1,0 +1,36 @@
+{
+    "name": "CS1C Bank App",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "hostRequirements": {
+        "cpus": 16,
+        "memory": "64gb"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cpptools-extension-pack",
+                "ms-vscode.cpptools-themes",
+                "ms-vscode.makefile-tools",
+                "GitHub.copilot",
+                "GitHub.copilot-chat"
+            ],
+            "settings": {
+                "workbench.colorTheme": "Default Dark Modern",
+                "C_Cpp.default.cppStandard": "c++20",
+                "C_Cpp.default.cStandard": "c23",
+                "chat.tools.terminal.autoApprove": {
+                    "*": true,
+                    "rm": false
+                }
+            }
+        }
+    },
+    "postCreateCommand": "if [ -f /etc/apt/sources.list.d/kali.sources ]; then sudo sed -i 's/^Types: deb$/Types: deb deb-src/g' /etc/apt/sources.list.d/kali.sources; elif [ -f /etc/apt/sources.list ]; then grep -q '^deb-src' /etc/apt/sources.list || echo 'deb-src http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware' | sudo tee -a /etc/apt/sources.list > /dev/null; fi && sudo apt update && sudo apt -y build-dep ncurses",
+    "remoteUser": "vscode"
+}
