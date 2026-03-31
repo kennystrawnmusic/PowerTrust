@@ -1155,6 +1155,11 @@ namespace KerberosAuth {
                         })
 
                         $advapi32::CloseHandle($Token)
+                        
+                        # Free the ticket logon buffer after we're done with it
+                        if ($ticketLogonPtr -ne [IntPtr]::Zero) {
+                            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ticketLogonPtr)
+                        }
                     }
 
                     Start-Job -ScriptBlock $block -ArgumentList "-Signature $signature"
