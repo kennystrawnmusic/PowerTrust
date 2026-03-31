@@ -650,10 +650,21 @@ function Add-RemoteMachineAccount {
 
     $securePass = ConvertTo-SecureString $MachinePassword -AsPlainText -Force
     
-    if ($PTT) {
-        New-ADComputer -Name $MachineName -AccountPassword $securePass -Enabled $true -Server $TargetDC
-    } else {
-        New-ADComputer -Name $MachineName -AccountPassword $securePass -Enabled $true -Server $TargetDC -Credential $Credential
+    $adParams = @{
+        Name            = $MachineName
+        SamAccountName  = "$MachineName$"
+        AccountPassword = $securePass
+        Enabled         = $true
+        Server          = $TargetDC
+    }
+
+    if (-not $PTT) { $adParams["Credential"] = $Credential }
+
+    try {
+        New-ADComputer @adParams
+        Write-Host "Successfully created account for $MachineName" -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to create account: $($_.Exception.Message)"
     }
 }
 
