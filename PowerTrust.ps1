@@ -203,14 +203,14 @@ function Invoke-ReverseBastion {
     try {
         [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
             $TargetDomain,
-            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
+            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound,
             $trustpass
         )
     } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
         Write-Host "Local side of trust relationship already exists; updating instead of creating anew"
         [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
             $TargetDomain,
-            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
+            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound,
             $trustpass
         )
     }
