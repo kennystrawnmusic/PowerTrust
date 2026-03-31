@@ -91,14 +91,15 @@ function Invoke-ReverseBastion {
             $_.SourceName -eq $CurrentDomain -and $_.TargetName -eq $TargetDomain
         }
 
-        if ($null -ne $trust) {
-            [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
+        try {
+            [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
                 $CurrentDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
                 $trustpass
             )
-        } else {
-            [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
+        } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
+            Write-Host "Local side of trust relationship already exists; updating instead of creating anew"
+            [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
                 $CurrentDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
                 $trustpass
