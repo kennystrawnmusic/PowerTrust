@@ -627,7 +627,7 @@ Requires appropriate permissions to create computer accounts in the target domai
 The password must meet the domain's complexity requirements.
 
 .INPUTS
-System.String
+System.String, System.Management.Automation.PSCredential, System.Management.Automation.SwitchParameter
 
 .OUTPUTS
 None. Creates a new computer account in Active Directory.
