@@ -45,7 +45,7 @@ function Add-TargetDnsForwarder {
 
 <#
 .SYNOPSIS
-Establishes a bidirectional trust relationship between two Active Directory forests.
+Establishes a one-way PAM trust relationship between two Active Directory forests.
 
 .DESCRIPTION
 Creates a reverse bastion trust (also known as a PAM trust) between the current forest and a target forest.
@@ -744,7 +744,7 @@ public static extern bool CloseHandle(IntPtr hObject);
 
     $block = {
         param(
-            [IntPtr]$Token
+            [IntPtr]$Token,
             [string]$TypeDefinition
         )
         $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
