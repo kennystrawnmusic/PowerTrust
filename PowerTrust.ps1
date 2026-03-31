@@ -1067,7 +1067,6 @@ namespace KerberosAuth {
             [ref]$protocolStatus
         )
         
-        # Free the pointer only after everything else is done, which is when we've actually injected the ticket into a new session, not until then
         if ($result -ne 0) {
             Write-Error "LsaCallAuthenticationPackage failed with error code: $result"
             continue
