@@ -756,7 +756,7 @@ public static extern bool CloseHandle(IntPtr hObject);
             Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
         })
 
-        $advapi32::CloseHandle($token)
+        $advapi32::CloseHandle($Token)
     }
 
     if ($success) {
