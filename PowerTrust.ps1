@@ -739,17 +739,15 @@ public static extern bool LogonUser(string lpszUsername, string lpszDomain, stri
 public static extern bool CloseHandle(IntPtr hObject);
 "@
 
-    $advapi32 = Add-Type -MemberDefinition $signature -Name "Win32Logon" -Namespace "Win32" -PassThru
-
     $token = [IntPtr]::Zero
     $success = $advapi32::LogonUser("$($Credential.UserName)", "$($Credential.GetNetworkCredential().Domain)", "$($Credential.GetNetworkCredential().Password)", 9, 0, [ref]$token)
 
     $block = {
         param(
-            [IntPtr]$Token,
-            [System.Type]$Type
+            [IntPtr]$Token
         )
-        
+        $advapi32 = Add-Type -MemberDefinition $signature -Name "Win32Logon" -Namespace "Win32" -PassThru
+
         $identity = New-Object System.Security.Principal.WindowsIdentity($Token)
         $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
 
@@ -758,11 +756,11 @@ public static extern bool CloseHandle(IntPtr hObject);
             Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
         })
 
-        $Type::CloseHandle($token)
+        $advapi32::CloseHandle($token)
     }
 
     if ($success) {
-        Start-Job -ScriptBlock $block -ArgumentList "-Token $token -Type $advapi32"
+        Start-Job -ScriptBlock $block -ArgumentList "-Token $token"
     } else {
         Write-Error "LogonUser failed with error code: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
     }
