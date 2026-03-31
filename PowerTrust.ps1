@@ -403,7 +403,7 @@ function Invoke-PSADSession {
     }
 }
 
-function Invoke-RunAsNetOnly {
+function Invoke-PSNetOnly {
     param(
         [Parameter(Mandatory=$true)]
         [System.Management.Automation.PSCredential]$Credential
