@@ -16,6 +16,10 @@ function Add-TargetDnsForwarder {
 
 function Invoke-ReverseBastion {
     [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+
+    # Unfortunately the API for creating trusts doesn't allow for passing a secure string, so we have to suppress the warning about using plaintext passwords here.
+    # The password is only used for the trust relationship and isn't stored anywhere, so this is an acceptable risk in this context.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Scope='Function')]
     param(
         [Parameter(Mandatory=$true)]
         [string]$TargetDomain,
@@ -30,7 +34,7 @@ function Invoke-ReverseBastion {
         [Parameter(ParameterSetName="PassTheTicket")]
         [switch]$PTT,
         [Parameter(ParameterSetName="PassTheTicket", Mandatory=$true)]
-        [System.Security.SecureString]$TrustPassword
+        [string]$TrustPassword
     )
 
     Import-Module ActiveDirectory
@@ -70,7 +74,7 @@ function Invoke-ReverseBastion {
     $trustpass = if ($PTT) {
         $TrustPassword
     } else {
-        $Credential.Password
+        $Credential.GetNetworkCredential().Password
     }
 
     $block = {
