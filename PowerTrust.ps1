@@ -670,35 +670,56 @@ function Add-RemoteMachineAccount {
 
 <#
 .SYNOPSIS
-Performs pass-the-ticket attacks through automatic harvesting. This function is an alternative to the [krbrelayx](https://github.com/dirkjanm/krbrelayx) tool when you're already running a DC.
+Relays Kerberos tickets via DNS to establish cross-forest authentication.
 
 .DESCRIPTION
-Uses internal Windows APIs to listen for incoming TGTs from a foreign domain. If found, it uses low-level Windows APIs to inject them into a logon-type-9 PowerShell process.
-This allows for relaying Kerberos tickets without needing to create a new machine account or establish a trust relationship, as long as the target domain's users authenticate to the wildcard DNS record.
+Monitors the Kerberos ticket cache and automatically relays incoming Kerberos Ticket Granting Tickets (TGTs)
+for a target domain to establish authenticated sessions. Uses LSA (Local Security Authority) APIs to query
+and process Kerberos tickets, then launches new PowerShell processes with impersonated credentials.
+Supports both password-based and Pass-The-Ticket authentication methods for initial setup.
+
+This function is typically used in advanced AD exploitation scenarios where DNS-based Kerberos relay attacks
+are performed between forests or domains.
 
 .PARAMETER TargetDC
-The hostname or FQDN of the remote domain controller to relay tickets to.
+The hostname or FQDN of the target domain controller.
+Used to determine the target domain's DNS root for ticket matching.
+
 .PARAMETER LocalIP
-The IP address that the wildcard DNS record points to, which should be the local machine running this
-function.
+The IP address of the local machine or listener that will receive relayed tickets.
+Used in conjunction with DNS configuration for the relay attack.
+
 .PARAMETER Credential
-PSCredential object containing credentials for authentication to the target domain.
-Used with the PasswordAuth parameter set.
+PSCredential object containing username and password for authentication to the target domain.
+Only used with the PasswordAuth parameter set.
+Not required when using Pass-The-Ticket authentication (PTT).
+
 .PARAMETER PTT
-Indicates Pass-The-Ticket authentication should be used instead of password authentication.
-.EXAMPLE
-$cred = Get-Credential
-Invoke-WildcardDnsKrbRelay -TargetDC "dc01.target.example.com" -LocalIP "192.168.1.100" -Credential $cred
-Relays tickets to dc01.target.example.com using password-based authentication.
+Switch parameter indicating Pass-The-Ticket authentication should be used instead of password credentials.
+When specified, existing Kerberos tickets are used instead of password-based logon.
+Suppresses the requirement for the Credential parameter.
 
 .EXAMPLE
-Invoke-WildcardDnsKrbRelay -TargetDC "dc01.target.example.com" -LocalIP "192.168.1.100" -PTT
-Relays tickets to dc01.target.example.com using Pass-The-Ticket authentication.
+$cred = Get-Credential -UserName "CORP\Administrator"
+Invoke-DnsKrbRelay -TargetDC "dc01.corp.example.com" -LocalIP "192.168.1.50" -Credential $cred
+Starts relaying Kerberos tickets to 192.168.1.50 using password-based authentication.
+
+.EXAMPLE
+Invoke-DnsKrbRelay -TargetDC "dc01.corp.example.com" -LocalIP "192.168.1.50" -PTT
+Starts relaying Kerberos tickets using existing cached credentials via Pass-The-Ticket.
 
 .NOTES
-Requires a wildcard DNS record pointing to the local machine, created with `Add-RemoteDnsWildcardRecord`.
-Requires appropriate permissions to inject tickets and create logon sessions on the local machine.
-This function is a proof-of-concept and may require additional error handling and edge case management for production use.
+Requires appropriate permissions to query Kerberos ticket cache on the local system.
+Uses Win32 LSA APIs: LsaConnectUntrusted, LsaLookupAuthenticationPackage, LsaCallAuthenticationPackage, and LsaLogonUser.
+Runs an infinite loop querying the ticket cache every 5 seconds.
+Creates background jobs to launch impersonated PowerShell processes when tickets are found.
+Memory from LSA buffers is freed after processing to prevent leaks.
+
+.INPUTS
+System.String, System.Management.Automation.PSCredential, System.Management.Automation.SwitchParameter
+
+.OUTPUTS
+None. Creates background jobs for impersonated PowerShell processes when tickets are found.
 #>
 function Invoke-DnsKrbRelay {
     [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
