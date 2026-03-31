@@ -113,9 +113,7 @@ function Invoke-ReverseBastion {
 
     [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateTrustRelationship(
         $TargetDomain,
-        $trustpass,
-        [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound,
-        [System.DirectoryServices.ActiveDirectory.TrustType]::Forest
+        [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound
     )
 
     if ($PTT) {
