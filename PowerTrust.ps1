@@ -365,6 +365,8 @@ function Enter-PlaintextWinRMSession {
 
 function Invoke-PSADSession {
     [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+    
+    # Because this will really only be used on an offensive DC from which a penetration test of another domain is being conducted, this is no different from what e.g. NetExec does
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Scope='Function')]
     param(
         [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)] 
