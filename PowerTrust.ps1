@@ -688,6 +688,8 @@ function Invoke-PSADSession {
     }
 
     Invoke-Command -Session $s -ScriptBlock {
+        # Note that `[System.Reflection.Assembly]::LoadFile()` has already been used locally before the remote session was created.
+        # This ensures that the actual loading of the assembly is conducted on the attack domain, out of reach of any endpoint protection mechanisms on the target machine.
         Import-Module -Assembly $Using:ADAssemblyType -Global
     }
 
