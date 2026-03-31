@@ -240,7 +240,7 @@ function Gen-RDPFile {
         [int]$Width = 2880,
         [int]$Height = 1620,
         [int]$Port = 3389,
-        [bool]$FullScreen = $false
+        [switch]$FullScreen
     )
 
     $enc = ConvertTo-SecureString $Password -AsPlainText -Force | ConvertFrom-SecureString
