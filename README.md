@@ -11,6 +11,5 @@ This toolkit contains the following tools to help utilize an offensively-provisi
 * `Add-TargetDnsForwarder`: Simplifies the proces of adding a conditional forwarder for resolving a remote domain without needing to manually edit configuration files
 * `Add-RemoteDnsWildcardRecord`: Automates the process of adding a `*` record to a remote DC
 * `Enter-PlaintextWinRMSession`: Wrapper around `Enter-PSSession` that reduces the number of steps necessary to connect from 3 to 1
-* `Invoke-PSADSession`: Reflectively loads the Active Directory PowerShell module assembly into a WinRM session and enters it, bypassing the need to add it as an optional Windows feature on the target system. Because this module is Microsoft-signed, it's much easier to avoid detection with.
 * `Invoke-PSNetOnly`: Creates a new PowerShell process with logon type 9 (`LOGON_TYPE_NEW_CREDENTIALS`), the same logon type that `runas /netonly` and `Rubeus /createnetonly` use, with a `PSCredential` object instead of a NT hash and/or interactive password prompt. This allows further use of tools like Rubeus and SharpHound remotely from the attack domain with minimal effort.
 * More to come
