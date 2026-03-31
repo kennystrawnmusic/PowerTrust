@@ -745,8 +745,9 @@ public static extern bool CloseHandle(IntPtr hObject);
     $block = {
         param(
             [IntPtr]$Token
+            [string]$TypeDefinition
         )
-        $advapi32 = Add-Type -MemberDefinition $signature -Name "Win32Logon" -Namespace "Win32" -PassThru
+        $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
 
         $identity = New-Object System.Security.Principal.WindowsIdentity($Token)
         $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
@@ -760,7 +761,7 @@ public static extern bool CloseHandle(IntPtr hObject);
     }
 
     if ($success) {
-        Start-Job -ScriptBlock $block -ArgumentList "-Token $token"
+        Start-Job -ScriptBlock $block -ArgumentList "-Token $token -TypeDefinition $signature"
     } else {
         Write-Error "LogonUser failed with error code: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
     }
