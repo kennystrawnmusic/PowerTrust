@@ -86,10 +86,6 @@ function Invoke-ReverseBastion {
             [System.Security.SecureString]$trustpass
         )
         [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
-        
-        $trust = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain([System.DirectoryServices.ActiveDirectory.Forest]::GetForest($TargetDomain)).GetAllTrustRelationships() | Where-Object {
-            $_.SourceName -eq $CurrentDomain -and $_.TargetName -eq $TargetDomain
-        }
 
         try {
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
