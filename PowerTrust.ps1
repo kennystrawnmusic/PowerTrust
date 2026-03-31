@@ -90,7 +90,7 @@ function Invoke-ReverseBastion {
         }
 
         if ($null -ne $trust) {
-            $trust.UpdateLocalSideOfTrustRelationship(
+            [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().UpdateLocalSideOfTrustRelationship(
                 $CurrentDomain,
                 [System.DirectoryServices.ActiveDirectory.TrustDirection]::Outbound,
                 $trustpass
