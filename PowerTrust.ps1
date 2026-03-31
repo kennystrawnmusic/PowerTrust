@@ -604,6 +604,61 @@ function Enter-PlaintextWinRMSession {
 
 <#
 .SYNOPSIS
+Creates a new machine account on a remote domain controller.
+
+.DESCRIPTION
+Adds a new computer account to the Active Directory domain, hosted on a remote domain controller.
+
+.PARAMETER TargetDC
+The hostname or FQDN of the remote domain controller.
+
+.PARAMETER MachineName
+The name of the machine account to create.
+
+.PARAMETER Password
+The password for the new machine account.
+
+.EXAMPLE
+Add-RemoteMachineAccount -TargetDC "dc01.example.com" -MachineName "WEB01" -Password "P@ssw0rd!"
+Creates a new machine account named WEB01 on dc01.example.com.
+
+.NOTES
+Requires appropriate permissions to create computer accounts in the target domain.
+The password must meet the domain's complexity requirements.
+
+.INPUTS
+System.String
+
+.OUTPUTS
+None. Creates a new computer account in Active Directory.
+
+#>
+function Add-RemoteMachineAccount {
+    [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TargetDC,
+        [Parameter(Mandatory=$true)]
+        [string]$MachineName,
+        [Parameter(Mandatory=$true)]
+        [string]$MachinePassword,
+        [Parameter(Mandatory=$true, ParameterSetName="PasswordAuth")]
+        [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory=$true, ParameterSetName="PassTheTicket")]
+        [switch]$PTT
+    )
+
+    $securePass = ConvertTo-SecureString $MachinePassword -AsPlainText -Force
+    
+    if ($PTT) {
+        New-ADComputer -Name $MachineName -AccountPassword $securePass -Enabled $true -Server $TargetDC
+    } else {
+        New-ADComputer -Name $MachineName -AccountPassword $securePass -Enabled $true -Server $TargetDC -Credential $Credential
+    }
+}
+
+<#
+.SYNOPSIS
 Impersonates a user and launches a new PowerShell process with their credentials.
 
 .DESCRIPTION
