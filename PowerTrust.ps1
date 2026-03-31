@@ -1090,10 +1090,10 @@ namespace KerberosAuth {
                             [string]$Signature
                         )
 
+                        Add-Type -TypeDefinition $signature -Namespace KerberosAuth
+
                         # Use LsaLogonUser to create a new logon session with logon type 9 and KERB_TICKET_LOGON
                         $TicketLogon = New-Object KerberosAuth.KERB_TICKET_LOGON
-
-                        Add-Type -TypeDefinition $signature -Namespace KerberosAuth
 
                         $TicketLogon.MessageType = [KerberosAuth.KERB_LOGON_SUBMIT_TYPE]::KerbTicketLogon
                         $TicketLogon.ServiceTicketLength = $ticket.EncodedTicketSize
