@@ -676,6 +676,7 @@ function Invoke-PSADSession {
     $ADModule = Get-Module -Name ActiveDirectory
     $ADModuleAssemblyPath = $ADModule.NestedModules[0].Path
 
+    # We haven't created the remote session yet, so this is fine for now.
     $ADAssemblyType = [System.Reflection.Assembly]::LoadFile($ADModuleAssemblyPath)
 
     $s = if ($PTT) {
