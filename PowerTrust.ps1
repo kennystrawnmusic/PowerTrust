@@ -609,7 +609,7 @@ Creates a PowerShell session with the Active Directory module pre-loaded.
 .DESCRIPTION
 Establishes a PowerShell Remoting session with credentials and automatically loads the Active Directory module
 for use in the remote session by loading the module assembly locally and passing it to the remote session via the `$Using` scope,
-ensuring that all the AV/EDR-triggering logic is conducted on the attack domain, out of reach of any endpoint protection mechanisms.
+ensuring that all the AV/EDR-triggering logic is conducted on the offensive domain, out of reach of any endpoint protection mechanisms.
 This ensures that even without the Active Directory module installed on the remote machine, AD cmdlets can be used within the session.
 Can be used in interactive or non-interactive mode.
 
