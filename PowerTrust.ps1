@@ -607,9 +607,9 @@ function Enter-PlaintextWinRMSession {
 Creates a PowerShell session with the Active Directory module pre-loaded.
 
 .DESCRIPTION
-Establishes a PowerShell Remoting session with credentials and automatically loads the
-Active Directory module for use in the remote session. Can be used in interactive or
-non-interactive mode.
+Establishes a PowerShell Remoting session with credentials and automatically loads the Active Directory module
+for use in the remote session by loading the module assembly locally and passing it to the remote session via the `$Using` scope.
+Can be used in interactive or non-interactive mode.
 
 .PARAMETER User
 The username for authentication, typically in domain\username format.
