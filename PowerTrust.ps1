@@ -29,7 +29,7 @@ function Invoke-ReverseBastion {
         [string]$TargetIP,
         [Parameter(ParameterSetName="PassTheTicket")]
         [switch]$PTT,
-        [Parameter(ParameterSetName="PassTheTicket")]
+        [Parameter(ParameterSetName="PassTheTicket", Mandatory=$true)]
         [System.Security.SecureString]$TrustPassword
     )
 
