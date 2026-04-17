@@ -1234,35 +1234,52 @@ function Invoke-PSNetOnly {
     )
 
     $signature = @"
-[DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword, int dwLogonType, int dwLogonProvider, ref IntPtr phToken);
-[DllImport("kernel32.dll", SetLastError = true)]
-public static extern bool CloseHandle(IntPtr hObject);
+    using System;
+    using System.Runtime.InteropServices;
+
+    public class Win32 {
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword, int dwLogonType, int dwLogonProvider, ref IntPtr phToken);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool CloseHandle(IntPtr hObject);
+    }
 "@
 
-    $token = [IntPtr]::Zero
-    $success = $advapi32::LogonUser("$($Credential.UserName)", "$($Credential.GetNetworkCredential().Domain)", "$($Credential.GetNetworkCredential().Password)", 9, 0, [ref]$token)
-
-    $block = {
-        param(
-            [IntPtr]$Token
-        )
-        $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
-
-        $identity = New-Object System.Security.Principal.WindowsIdentity($Token)
-        $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
-
-        [System.Threading.Thread]::CurrentPrincipal = $principal
-        [System.Security.Principal.WindowsIdentity]::RunImpersonated($identity.AccessToken, {
-            Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
-        })
-
-        $advapi32::CloseHandle($Token)
+    # Compile the Win32 functions
+    if (-not ([System.Management.Automation.PSTypeName]'Win32').Type) {
+        Add-Type -TypeDefinition $signature
     }
 
+    $token = [IntPtr]::Zero
+    $netCred = $Credential.GetNetworkCredential()
+
+    # Logon Type 9: LOGON32_LOGON_NEW_CREDENTIALS
+    # Logon Provider 0: LOGON32_PROVIDER_DEFAULT
+    $success = [Win32]::LogonUser(
+        $netCred.UserName, 
+        $netCred.Domain, 
+        $netCred.Password, 
+        9, 
+        0, 
+        [ref]$token
+    )
+
     if ($success) {
-        Start-Job -ScriptBlock $block -ArgumentList "-Token $token"
+        try {
+            # Use .NET's built-in Impersonation wrapper
+            [System.Security.Principal.WindowsIdentity]::RunImpersonated([System.Runtime.InteropServices.SafeHandle]($token), {
+                # Launch the new process while impersonating
+                Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'NetOnly: $($netCred.UserName)'"
+            })
+            Write-Host "Successfully launched PowerShell with NetOnly credentials." -ForegroundColor Green
+        }
+        finally {
+            # Always close the handle
+            [void][Win32]::CloseHandle($token)
+        }
     } else {
-        Write-Error "LogonUser failed with error code: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+        $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Write-Error "LogonUser failed with error code: $errorCode"
     }
 }
