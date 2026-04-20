@@ -604,10 +604,10 @@ function Enter-PlaintextWinRMSession {
 
 <#
 .SYNOPSIS
-Creates a new machine account on a remote domain controller.
+Creates a new machine account on the target domain.
 
 .DESCRIPTION
-Adds a new computer account to the Active Directory domain, hosted on a remote domain controller.
+Adds a new computer account to the target domain. Useful for testing for vulnerabilities like BadSuccessor, noPac, and misconfigurations like RBCD without tripping alarms.
 
 .PARAMETER TargetDC
 The hostname or FQDN of the remote domain controller.
