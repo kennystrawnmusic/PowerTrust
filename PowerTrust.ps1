@@ -1270,7 +1270,7 @@ function Invoke-PSNetOnly {
             # Use .NET's built-in Impersonation wrapper
             [System.Security.Principal.WindowsIdentity]::RunImpersonated([System.Runtime.InteropServices.SafeHandle]($token), {
                 # Launch the new process while impersonating
-                Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'NetOnly: $($netCred.UserName)'"
+                Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -NoExit -Command '`$Host.UI.RawUI.WindowTitle = `'NetOnly: $($netCred.UserName)`'"
             })
             Write-Host "Successfully launched PowerShell with NetOnly credentials." -ForegroundColor Green
         }
