@@ -12,6 +12,6 @@ This toolkit contains the following tools to help utilize an offensively-provisi
 * `Add-RemoteDnsWildcardRecord`: Automates the process of adding a `*` record to a remote DC
 * `Enter-PlaintextWinRMSession`: Wrapper around `Enter-PSSession` that reduces the number of steps necessary to connect from 3 to 1
 * `Add-RemoteMachineAccount`: Creates a machine account on a target domain from the attack domain, if the MAQ on the target domain is nonzero. Doing it remotely ensures that AV/EDR solutions don't have time to block the tools before the machine account is created.
-* `Invoke-DnsKrbRelay`: Uses DNS records like those previously created using `Add-RemoteDnsWildcardRecord` to launch new PowerShell processes with logon type 9 automatically as the target users
+* `Invoke-DnsKrbRelay`: Uses DNS records like those previously created using `Add-RemoteDnsWildcardRecord` to launch new PowerShell processes with logon type 9 automatically as the target users by listening for tickets and passing them
 * `Invoke-PSNetOnly`: Creates a new PowerShell process with logon type 9 (`LOGON_TYPE_NEW_CREDENTIALS`), the same logon type that `runas /netonly` and `Rubeus /createnetonly` use, with a `PSCredential` object instead of a NT hash and/or interactive password prompt. This allows further use of tools like Rubeus and SharpHound remotely from the attack domain with minimal effort.
 * More to come
