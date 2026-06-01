@@ -1187,13 +1187,13 @@ namespace KerberosAuth {
             }
         }
 
-        # Wait 5 seconds before querying again to avoid high CPU usage
-        Start-Sleep -Seconds 5
-
         # Free the response buffer after processing
         if ($responsePtr -ne [IntPtr]::Zero) {
             [System.Runtime.InteropServices.Marshal]::FreeHGlobal($responsePtr)
         }
+
+        # Wait 5 seconds before querying again to avoid high CPU usage
+        Start-Sleep -Seconds 5
     }
 }
 
