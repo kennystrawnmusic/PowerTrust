@@ -1098,7 +1098,7 @@ namespace KerberosAuth {
             continue
         }
 
-        # 2. If the response contains a ticket for the target domain, create a new logon session with the ticket
+        # 4. If the response contains a ticket for the target domain, create a new logon session with the ticket
         $response = [System.Runtime.InteropServices.Marshal]::PtrToStructure($responsePtr, [Type][KerberosAuth.KERB_QUERY_TKT_CACHE_RESPONSE])
         if ($response.TicketCount -gt 0) {
             foreach ($ticket in $response.Tickets) {
