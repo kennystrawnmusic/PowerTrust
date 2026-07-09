@@ -602,6 +602,144 @@ function Enter-PlaintextWinRMSession {
     Enter-PSSession -ComputerName $TargetComputer -Credential $cred
 }
 
+
+<#
+.SYNOPSIS
+Generates a dynamic module with custom PowerShell enumeration and exploitation logic (more to be added) and loads it into a new WinRM session
+
+.DESCRIPTION
+Creates and enters an interactive PowerShell Remoting session to a remote computer
+using provided PSCredential object. Also adds a dynamic module to the session to allow enumeration and exploitation on the fly.
+
+.PARAMETER TargetComputer
+The hostname, FQDN, or IP address of the remote computer.
+
+.PARAMETER Credential
+PSCredential object containing credentials for authentication to the remote server.
+Used with the PasswordAuth parameter set.
+
+.PARAMETER PTT
+Indicates Pass-The-Ticket authentication should be used instead of password authentication.
+
+.EXAMPLE
+$cred = Get-Credential
+Invoke-PSDynamicModuleSession -TargetComputer "server.example.com" $Credential $crerd
+Establishes an interactive session to server.example.com using username/password authentication.
+
+.EXAMPLE
+.\Rubeus.exe ptt /ticket:<SNIP> /nowrap
+Invoke-PSDynamicModuleSession -TargetComputer "server.example.com" -PTT
+Establishes an interactive session to server.example.com using Pass-The-Ticket authentication.
+
+.NOTES
+Requires WinRM to be enabled and accessible on the target computer.
+The session remains open until the user exits (using 'Exit-PSSession' or 'exit').
+
+.INPUTS
+System.String
+
+.OUTPUTS
+None. Enters interactive session mode.
+#>
+function Invoke-PSDynamicModuleSession{
+    [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
+    param(
+        [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)] 
+        [System.Management.Automation.PSCredential]$Credential,
+        [Parameter(Mandatory=$true)]
+        [string]$TargetComputer,
+        [Parameter(ParameterSetName="PassTheTicket")]
+        [switch]$PTT
+    )
+    
+    $block = {
+        function Find-InterestingLocalAcl {
+            Add-Type -TypeDefinition System.DirectoryServices
+            
+            $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+            $targetDC = $forest.RootDomain.DomainControllers[0].Name
+            
+            # --- Construct the LDAP Filter dynamically using System.DirectoryServices ---
+            
+            # 1. Base filter for users and computers
+            $ldapFilter = "(&(|(objectClass=user)(objectClass=computer))"
+            
+            # 2. Find and exclude members of groups where adminCount=1
+            $groupEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$targetDC")
+            $groupSearcher = New-Object System.DirectoryServices.DirectorySearcher($groupEntry)
+            $groupSearcher.Filter = "(&(objectClass=group)(adminCount=1))"
+            [void]$groupSearcher.PropertiesToLoad.Add("distinguishedName")
+            $adminGroups = $groupSearcher.FindAll()
+            
+            foreach ($group in $adminGroups) {
+                $dn = $group.Properties["distinguishedName"][0]
+                $ldapFilter += "(!(memberOf=$dn))"
+            }
+            
+            # 3. Find and exclude Domain Controller computer objects
+            $dcSearcher = New-Object System.DirectoryServices.DirectorySearcher($groupEntry)
+            $dcSearcher.Filter = "(&(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))" # SERVER_TRUST_ACCOUNT
+            [void]$dcSearcher.PropertiesToLoad.Add("distinguishedName")
+            $dcs = $dcSearcher.FindAll()
+            
+            foreach ($dc in $dcs) {
+                $dcDn = $dc.Properties["distinguishedName"][0]
+                $ldapFilter += "(!(distinguishedName=$dcDn))"
+            }
+            
+            # 4. Exclude the krbtgt account and close the main AND clause
+            $ldapFilter += "(!(sAMAccountName=krbtgt))"
+            $ldapFilter += ")"
+            
+            # --- Execute Search across Partitions ---
+            
+            $partitions = $forest.RootDomain.DomainControllers[0].Partitions
+            
+            foreach ($partition in $partitions) {
+                $rootDSE = "LDAP://$($partition)"
+                $dirEntry = New-Object System.DirectoryServices.DirectoryEntry($rootDSE)
+                $searcher = New-Object System.DirectoryServices.DirectorySearcher($dirEntry)
+                
+                # Apply the dynamically generated filter directly to the searcher
+                $searcher.Filter = $ldapFilter
+                $searcher.SearchScope = [System.DirectoryServices.SearchScope]::Subtree
+                [void]$searcher.PropertiesToLoad.Add("ntSecurityDescriptor")
+                
+                $results = $searcher.FindAll()
+                
+                foreach ($result in $results) {
+                    if ($result.Properties.Contains("ntsecuritydescriptor")) {
+                        $rawSD = $result.Properties["ntsecuritydescriptor"][0]
+                        
+                        # Instantiate DirectoryObjectSecurity to parse the binary ACL
+                        $security = New-Object System.DirectoryServices.DirectoryObjectSecurity
+                        $security.SetSecurityDescriptorBinaryForm($rawSD)
+                        
+                        # Output the target path and its descriptive Access Rules
+                        [PSCustomObject]@{
+                            Path          = $result.Path
+                            AccessRules   = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
+                        } | Format-List
+                    }
+                }
+            }
+        }
+    }
+
+    $s = if ($PTT) {
+        New-PSSession -ComputerName $TargetComputer
+    } else {
+        New-PSSession -ComputerName $TargetComputer -Credential $Credential
+    }
+
+    Invoke-Command -Session $s -ScriptBlock {
+        $m = New-Module -ScriptBlock $Using:block -Global
+        Import-Module $m
+    }
+
+    Enter-PSSession $s
+}
+
 <#
 .SYNOPSIS
 Creates a new machine account on the target domain.
