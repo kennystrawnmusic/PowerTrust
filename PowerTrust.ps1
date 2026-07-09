@@ -658,7 +658,12 @@ function Invoke-PSDynamicModuleSession {
             Add-Type -TypeDefinition System.DirectoryServices
             
             $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-            $targetDC = $forest.RootDomain.DomainControllers[0].Name
+            
+            $dom = $forest.RootDomain
+            $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::Current()
+            $groups = $user.GetAuthorizationGroups()
+            
+            $targetDC = $dom.DomainControllers[0].Name
             
             # --- Construct the LDAP Filter dynamically using System.DirectoryServices ---
             
@@ -709,18 +714,29 @@ function Invoke-PSDynamicModuleSession {
                 $results = $searcher.FindAll()
                 
                 foreach ($result in $results) {
-                    if ($result.Properties.Contains("ntsecuritydescriptor")) {
-                        $rawSD = $result.Properties["ntsecuritydescriptor"][0]
-                        
-                        # Instantiate DirectoryObjectSecurity to parse the binary ACL
-                        $security = New-Object System.DirectoryServices.DirectoryObjectSecurity
-                        $security.SetSecurityDescriptorBinaryForm($rawSD)
-                        
-                        # Output the target path and its descriptive Access Rules
-                        [PSCustomObject]@{
-                            Path          = $result.Path
-                            AccessRules   = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
-                        } | Format-List
+                    foreach ($group in $groups) {
+                        if ($result.Properties.Contains("ntsecuritydescriptor")) {
+                            $rawSD = $result.Properties["ntsecuritydescriptor"][0]
+                            
+                            # Instantiate DirectoryObjectSecurity to parse the binary ACL
+                            $security = New-Object System.DirectoryServices.DirectoryObjectSecurity
+                            $security.SetSecurityDescriptorBinaryForm($rawSD)
+                            
+                            # Output the target path and its descriptive Access Rules
+                            [PSCustomObject]@{
+                                Path          = $result.Path
+                                AccessRules   = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
+                            } | Where-Object {
+                                ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and `
+                                $_.AccessControlType -eq "Allow" -and ( `
+                                    $_.ActiveDirectoryRights -eq "GenericAll" -or `
+                                    $_.ActiveDirectoryRights -like "*Write*" -or `
+                                    $_.ActiveDirectoryRights -like "*Create*" -or `
+                                    $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
+                                    $_.ActiveDirectoryRights -eq "Enroll"
+                                )
+                            } | Format-List
+                        }
                     }
                 }
             }
