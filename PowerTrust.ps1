@@ -658,10 +658,7 @@ function Invoke-PSDynamicModuleSession {
             Add-Type -TypeDefinition System.DirectoryServices
             
             $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
-            
             $dom = $forest.RootDomain
-            $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::Current()
-            $groups = $user.GetAuthorizationGroups()
             
             $targetDC = $dom.DomainControllers[0].Name
             
@@ -714,6 +711,9 @@ function Invoke-PSDynamicModuleSession {
                 $results = $searcher.FindAll()
                 
                 foreach ($result in $results) {
+                    $user = $result.GetDirectoryEntry()
+                    $groups = $user.memberOf
+                    
                     foreach ($group in $groups) {
                         if ($result.Properties.Contains("ntsecuritydescriptor")) {
                             $rawSD = $result.Properties["ntsecuritydescriptor"][0]
