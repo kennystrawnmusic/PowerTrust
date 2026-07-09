@@ -168,7 +168,7 @@ function Invoke-ReverseBastion {
             [string]$BastionDomain,
             [string]$TrustPassword
         )
-        [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
+        Add-Type -AssemblyName "System.DirectoryServices"
 
         try {
             [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().CreateLocalSideOfTrustRelationship(
