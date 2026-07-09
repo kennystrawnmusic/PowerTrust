@@ -727,13 +727,13 @@ function Invoke-PSDynamicModuleSession {
                                 Path          = $result.Path
                                 AccessRules   = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
                             } | Where-Object {
-                                ($_.IdentityReference -eq "$dom\$user" -or $_.IdentityReference -eq "$dom\$group") -and `
-                                $_.AccessControlType -eq "Allow" -and ( `
-                                    $_.ActiveDirectoryRights -eq "GenericAll" -or `
-                                    $_.ActiveDirectoryRights -like "*Write*" -or `
-                                    $_.ActiveDirectoryRights -like "*Create*" -or `
-                                    $_.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
-                                    $_.ActiveDirectoryRights -eq "Enroll"
+                                ($_.AccessRules.IdentityReference -eq "$dom\$user" -or $_.AccessRules.IdentityReference -eq "$dom\$group") -and `
+                                $_.AccessRules.AccessControlType -eq "Allow" -and ( `
+                                    $_.AccessRules.ActiveDirectoryRights -eq "GenericAll" -or `
+                                    $_.AccessRules.ActiveDirectoryRights -like "*Write*" -or `
+                                    $_.AccessRules.ActiveDirectoryRights -like "*Create*" -or `
+                                    $_.AccessRules.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
+                                    $_.AccessRules.ActiveDirectoryRights -eq "Enroll"
                                 )
                             } | Format-List
                         }
