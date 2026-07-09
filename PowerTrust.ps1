@@ -124,7 +124,7 @@ function Invoke-ReverseBastion {
     )
 
     Import-Module ActiveDirectory
-    [Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices.ActiveDirectory")
+    Add-Type -AssemblyName "System.DirectoryServices"
 
     $CurrentDomain = $Env:USERDNSDOMAIN
 
