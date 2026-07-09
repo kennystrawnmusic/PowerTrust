@@ -1164,7 +1164,18 @@ namespace KerberosAuth {
                         
                         Write-Host "Successfully logged on with ticket, token handle: $token. Attempting to launch new PowerShell process with impersonated token..." -ForegroundColor Green
 
-                        $advapi32 = Add-Type -MemberDefinition $TypeDefinition -Name "Win32Logon" -Namespace "Win32" -PassThru
+                        $win32 = @'
+using System;
+using System.Runtime.InteropServices;
+
+public class Win32 {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr hObject);
+}
+'@
+
+                        Add-Type -TypeDefinition $win32
 
                         $identity = New-Object System.Security.Principal.WindowsIdentity($token)
                         $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
@@ -1174,7 +1185,7 @@ namespace KerberosAuth {
                             Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass"
                         })
 
-                        $advapi32::CloseHandle($Token)
+                        [Win32]::CloseHandle($Token)
                         
                         # Free the ticket logon buffer after we're done with it
                         if ($ticketLogonPtr -ne [IntPtr]::Zero) {
