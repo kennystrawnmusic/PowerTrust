@@ -721,21 +721,29 @@ function Invoke-PSDynamicModuleSession {
                             # Instantiate DirectoryObjectSecurity to parse the binary ACL
                             $security = System.DirectoryServices.ActiveDirectorySecurity
                             $security.SetSecurityDescriptorBinaryForm($rawSD)
-                            
-                            # Output the target path and its descriptive Access Rules
-                            [PSCustomObject]@{
-                                Path          = $result.Path
-                                AccessRules   = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
-                            } | Where-Object {
-                                ($_.AccessRules.IdentityReference -eq "$dom\$user" -or $_.AccessRules.IdentityReference -eq "$dom\$group") -and `
-                                $_.AccessRules.AccessControlType -eq "Allow" -and ( `
-                                    $_.AccessRules.ActiveDirectoryRights -eq "GenericAll" -or `
-                                    $_.AccessRules.ActiveDirectoryRights -like "*Write*" -or `
-                                    $_.AccessRules.ActiveDirectoryRights -like "*Create*" -or `
-                                    $_.AccessRules.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
-                                    $_.AccessRules.ActiveDirectoryRights -eq "Enroll"
-                                )
-                            } | Format-List
+
+                            $accessRules = $security.GetAccessRules($true, $true, [System.Security.Principal.NTAccount])
+
+                            foreach ($rule in $accessRules) {
+                                # Output the target path and its descriptive Access Rules
+                                [PSCustomObject]@{
+                                    Path              = $result.Path
+                                    Identity          = $rule.IdentityReference.Value
+                                    ActiveDirectoryRights = $rule.ActiveDirectoryRights
+                                    AccessControlType = $rule.AccessControlType
+                                    IsInherited       = $rule.IsInherited
+                                    ObjectType        = $rule.ObjectType
+                                } | Where-Object {
+                                    ($_.AccessRules.IdentityReference -eq "$dom\$user" -or $_.AccessRules.IdentityReference -eq "$dom\$group") -and `
+                                    $_.AccessRules.AccessControlType -eq "Allow" -and ( `
+                                        $_.AccessRules.ActiveDirectoryRights -eq "GenericAll" -or `
+                                        $_.AccessRules.ActiveDirectoryRights -like "*Write*" -or `
+                                        $_.AccessRules.ActiveDirectoryRights -like "*Create*" -or `
+                                        $_.AccessRules.ActiveDirectoryRights -like '*Force-Change-Password*' -or `
+                                        $_.AccessRules.ActiveDirectoryRights -eq "Enroll"
+                                    )
+                                } | Format-List
+                            }
                         }
                     }
                 }
