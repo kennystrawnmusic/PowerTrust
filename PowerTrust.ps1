@@ -719,7 +719,7 @@ function Invoke-PSDynamicModuleSession {
                             $rawSD = $result.Properties["ntsecuritydescriptor"][0]
                             
                             # Instantiate DirectoryObjectSecurity to parse the binary ACL
-                            $security = New-Object System.DirectoryServices.DirectoryObjectSecurity
+                            $security = System.DirectoryServices.ActiveDirectorySecurity
                             $security.SetSecurityDescriptorBinaryForm($rawSD)
                             
                             # Output the target path and its descriptive Access Rules
