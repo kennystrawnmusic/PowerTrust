@@ -641,7 +641,7 @@ System.String
 .OUTPUTS
 None. Enters interactive session mode.
 #>
-function Invoke-PSDynamicModuleSession{
+function Invoke-PSDynamicModuleSession {
     [CmdletBinding(DefaultParameterSetName="PasswordAuth")]
     param(
         [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)] 
