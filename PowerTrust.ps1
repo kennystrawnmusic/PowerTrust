@@ -694,6 +694,9 @@ PSCredential object containing username and password for authentication to the t
 Only used with the PasswordAuth parameter set.
 Not required when using Pass-The-Ticket authentication (PTT).
 
+.PARAMETER ProbeDelay
+Time to wait between ticket probes in seconds
+
 .PARAMETER PTT
 Switch parameter indicating Pass-The-Ticket authentication should be used instead of password credentials.
 When specified, existing Kerberos tickets are used instead of password-based logon.
@@ -731,7 +734,8 @@ function Invoke-DnsKrbRelay {
         [Parameter(ParameterSetName="PasswordAuth", Mandatory=$true)]
         [System.Management.Automation.PSCredential]$Credential,
         [Parameter(ParameterSetName="PassTheTicket")]
-        [switch]$PTT
+        [switch]$PTT,
+        [int]$ProbeDelay = 5
     )
     
     $TargetDomain = if ($PTT) {
@@ -1203,8 +1207,8 @@ public class Win32 {
             [System.Runtime.InteropServices.Marshal]::FreeHGlobal($responsePtr)
         }
 
-        # Wait 5 seconds before querying again to avoid high CPU usage
-        Start-Sleep -Seconds 5
+        # Wait a specified number of seconds (default 5) before querying again to avoid high CPU usage
+        Start-Sleep -Seconds $ProbeDelay
     }
 }
 
