@@ -653,6 +653,7 @@ function Invoke-PSDynamicModuleSession{
     )
     
     $block = {
+        # TODO: Add more cmdlets to this dynamic module
         function Find-InterestingLocalAcl {
             Add-Type -TypeDefinition System.DirectoryServices
             
